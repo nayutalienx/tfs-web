@@ -1,0 +1,15 @@
+{{define "browser-context"}}
+<section class="card context-panel" id="context-panel">
+<h2>Контекст подключения TFS</h2>
+<p class="muted">Отдельные настройки этого браузера. Укажите URL коллекции, проект и PAT. Токен хранится в зашифрованной HttpOnly-cookie и не доступен JavaScript. Контекст без ограничения срока на сервере, сохраняется при перезапуске и продлевается при использовании. Очистка cookie, длительное неиспользование браузера или истечение PAT потребуют повторного ввода.</p>
+{{if .ContextURL}}<p>URL: <strong>{{.ContextURL}}</strong><br>Проект: <strong>{{.ContextProject}}</strong><br>PAT: установлен · скрыт</p>{{else}}<p>Контекст отсутствует. Заполните настройки, чтобы начать работу.</p>{{end}}
+{{if .Error}}<p role="alert">{{.Error}}</p>{{end}}
+<form method="post" action="/context" autocomplete="off">
+<input type="hidden" name="csrf" value="{{.Token}}">
+<label>URL коллекции TFS<input name="url" type="url" value="{{index .Form "url"}}" placeholder="https://tfs.example.com/DefaultCollection" required maxlength="1500"></label>
+<label>Проект<input name="project" value="{{index .Form "project"}}" required maxlength="200" placeholder="DemoProject"></label>
+<label>PAT token<input name="pat" type="password" autocomplete="new-password" maxlength="1000" {{if not .ContextURL}}required{{end}} placeholder="{{if .ContextURL}}Оставьте пустым, чтобы сохранить PAT для того же URL{{else}}Введите PAT{{end}}"></label>
+<p class="muted">При смене URL введите новый PAT. Данные прежнего серверного конфига автоматически не используются. Сохранение не проверяет доступность TFS — ошибки подключения будут показаны при загрузке данных.</p>
+<div class="actions"><button>Сохранить контекст</button>{{if .ContextURL}}<button type="submit" name="action" value="clear" formnovalidate class="secondary">Удалить контекст</button>{{end}}</div>
+</form></section>
+{{end}}

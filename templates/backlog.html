@@ -1,0 +1,42 @@
+{{define "backlog"}}
+<div class="card">
+  <form method="get" class="toolbar" aria-label="Фильтры задач">
+    <input name="q" value="{{.Search}}" placeholder="Поиск по тексту…" aria-label="Поиск по тексту" maxlength="200">
+    <select name="scope" aria-label="Область поиска"><option value="">Назначенные мне</option><option value="all" {{if eq .Mode "all"}}selected{{end}}>Весь проект</option></select>
+    <input name="state" list="filter-states" value="{{.StateFilter}}" placeholder="Любое состояние" aria-label="Состояние">
+    <datalist id="filter-states">{{range .States}}<option value="{{.Name}}" data-state-class="{{stateClass .Name}}">{{end}}</datalist>
+    <input name="type" list="filter-types" value="{{.TypeFilter}}" placeholder="Любой тип" aria-label="Тип элемента">
+    <datalist id="filter-types">{{range .Types}}<option value="{{.Name}}">{{end}}</datalist>
+    <button>Показать</button><a class="button secondary" href="/backlog">Сбросить</a>
+  </form>
+  <div class="muted">По умолчанию — ваши незавершённые элементы за 60 дней. Поиск — до 100 элементов; фильтры типа и состояния применяются к найденным результатам. <a href="/search">Глобальный поиск по бэклогу →</a></div>
+</div>
+{{template "task-board" .}}
+{{end}}
+{{define "task-board"}}
+<div class="board">
+  {{range .Groups}}
+  <section class="lane"><div class="lane-head"><span class="status-label {{stateClass .Name}}">{{.Name}}</span><span class="count">{{len .Items}}</span></div>
+    {{range .Items}}<article class="task">
+      <div class="meta"><span class="id">#{{.ID}}</span><span class="badge {{typeClass (field .Fields "System.WorkItemType")}}" title="{{field .Fields "System.WorkItemType"}}">{{shortType (field .Fields "System.WorkItemType")}}</span>{{with index .Fields "Microsoft.VSTS.Common.Priority"}}<span class="badge">P{{.}}</span>{{end}}</div>
+      <div class="meta"><a class="task-title" href="/workitem/{{.ID}}">{{field .Fields "System.Title"}}</a><span class="badge {{stateClass (field .Fields "System.State")}}">{{field .Fields "System.State"}}</span></div>
+      <div class="meta">{{person (index .Fields "System.AssignedTo")}}{{with index .Fields "Microsoft.VSTS.Scheduling.RemainingWork"}} · осталось {{.}} ч{{end}}</div>
+      <div class="iteration">{{field .Fields "System.IterationPath"}}</div>
+      <div class="task-footer"><a href="/workitem/{{.ID}}">Открыть</a><a href="/workitem/{{.ID}}#edit">Изменить поля →</a></div>
+    </article>{{end}}
+  </section>
+  {{else}}<div class="empty">По выбранным фильтрам ничего не найдено. Попробуйте изменить поиск.</div>{{end}}
+</div>
+{{end}}
+
+{{define "backlog-search"}}
+<section class="card">
+  <form method="get" action="/search" class="toolbar" aria-label="Глобальный поиск по бэклогу">
+    <input name="q" value="{{.Search}}" placeholder="Текст в элементах бэклога…" aria-label="Текст для поиска" maxlength="200" required autofocus>
+    <button>Найти во всём проекте</button><a class="button secondary" href="/search">Сбросить</a>
+  </form>
+  <p class="muted">Весь проект, любые ответственные и статусы, без ограничения по дате. Поиск в названии, описании, критериях приёмки и шагах воспроизведения. Комментарии не учитываются.</p>
+  {{if .Search}}<div class="meta">Найдено: {{len .Items}} · сначала недавно изменённые{{if eq (len .Items) 100}} · показаны первые 100, уточните запрос{{end}}</div>{{else}}<p class="muted">Введите текст для поиска.</p>{{end}}
+</section>
+{{if .Search}}{{template "task-board" .}}{{end}}
+{{end}}

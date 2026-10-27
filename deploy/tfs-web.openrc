@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+
+description="Local TFS Web on 127.0.0.1:18763"
+command="/usr/local/libexec/tfs-web"
+command_user="${TFS_WEB_USER:?Set TFS_WEB_USER in /etc/conf.d/tfs-web}"
+directory="/"
+supervisor="supervise-daemon"
+respawn_delay=5
+respawn_max=10
+respawn_period=60
+output_log="/var/log/tfs-web/server.log"
+error_log="/var/log/tfs-web/server.log"
+export XDG_CONFIG_HOME="/var/lib"
+
+depend() {
+    need localmount
+    after bootmisc
+}
+
+start_pre() {
+    checkpath --directory --owner "$command_user" --mode 0700 /var/lib/tfs-web
+    checkpath --directory --owner "$command_user" --mode 0750 /var/log/tfs-web
+    checkpath --file --owner "$command_user" --mode 0640 /var/log/tfs-web/server.log
+}

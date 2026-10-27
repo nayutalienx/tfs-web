@@ -1,0 +1,26 @@
+{{define "repositories"}}
+<p class="subtitle">Выберите репозиторий, чтобы открыть код, ветки и активные pull requests.</p>
+<div class="repo-grid spacer">{{range .Repos}}<article class="repo-card"><div class="eyebrow">Git repository</div><h2><a href="/repo/{{.ID}}">{{.Name}}</a></h2><span class="branch">{{branch .DefaultBranch}}</span><div class="actions"><a class="button secondary small" href="/repo/{{.ID}}/files">Код</a><a class="button secondary small" href="/repo/{{.ID}}/prs">Активные PR</a></div></article>{{else}}<div class="empty">Репозитории не найдены.</div>{{end}}</div>
+{{end}}
+{{define "repo-tabs"}}
+<div class="toolbar"><a href="/repos">← Все репозитории</a>{{if .Repository.Name}}<strong>{{.Repository.Name}}</strong>{{end}}<a class="button small" href="/repo/{{.Repo}}/pr/new">+ Создать PR</a></div>
+<nav class="tabs" aria-label="Разделы репозитория"><a href="/repo/{{.Repo}}" {{if eq .Title "Репозиторий"}}class="current" aria-current="page"{{end}}>Обзор</a><a href="/repo/{{.Repo}}/files" {{if or (eq .Title "Файлы репозитория") (eq .Title "Файл")}}class="current" aria-current="page"{{end}}>Код</a><a href="/repo/{{.Repo}}/prs" {{if eq .Title "Активные pull requests"}}class="current" aria-current="page"{{end}}>Активные PR</a><a href="/repo/{{.Repo}}#branches">Ветки</a></nav>
+{{end}}
+{{define "repository"}}
+{{template "repo-tabs" .}}
+<div class="card"><div class="eyebrow">Репозиторий</div><h2>{{.Repository.Name}}</h2><div class="toolbar"><div class="meta">Основная ветка <span class="branch">{{branch .Repository.DefaultBranch}}</span></div><a class="button secondary" href="/repo/{{.Repo}}/files?branch={{.Repository.DefaultBranch}}">Открыть код →</a></div></div>
+{{template "pr-lists" .}}
+<p class="muted">Обзор показывает первую страницу остальных PR. <a href="/repo/{{.Repo}}/prs">Открыть полный список с переключением страниц →</a></p>
+<section id="branches" class="card anchor spacer"><h2>Ветки <span class="count">{{len .Branches}}</span></h2><p class="muted">Первые 100 веток. Для другой ветки можно ввести её имя в разделе «Код».</p><details><summary>Показать ветки и перейти к файлам</summary><div class="file-list spacer">{{range .Branches}}<div class="file-row"><span class="file-kind">Ветка</span><a href="/repo/{{$.Repo}}/files?branch={{.Name}}">{{branch .Name}}</a></div>{{else}}<div class="empty">Нет доступных веток.</div>{{end}}</div></details></section>
+{{end}}
+{{define "files"}}
+{{template "repo-tabs" .}}
+<div class="card"><form method="get" class="toolbar"><label>Ветка<input name="branch" value="{{branch .Branch}}" placeholder="Основная ветка"></label><label>Папка<input name="path" value="{{.Path}}"></label><button>Открыть</button></form><div class="path">{{.Path}}</div><p class="muted">{{if .Branch}}{{branch .Branch}}{{else}}Основная ветка репозитория{{end}}</p></div>
+<div class="file-list">{{if ne .Path "/"}}<div class="file-row"><span class="file-kind">Папка</span><a href="/repo/{{.Repo}}/files?path={{.ParentPath}}&branch={{.Branch}}">.. / На уровень выше</a></div>{{end}}{{range .Files}}<div class="file-row">{{if or .IsFolder (eq .GitObjectType "tree")}}<span class="file-kind">Папка</span><a href="/repo/{{$.Repo}}/files?path={{.Path}}&branch={{$.Branch}}">{{base .Path}} /</a>{{else}}<span class="file-kind">Файл</span><a href="/repo/{{$.Repo}}/file?path={{.Path}}&branch={{$.Branch}}">{{base .Path}}</a>{{end}}</div>{{else}}<div class="empty">В этой папке нет файлов.</div>{{end}}</div>
+{{end}}
+{{define "file"}}
+{{template "repo-tabs" .}}
+<div class="toolbar"><a href="/repo/{{.Repo}}/files?path={{.ParentPath}}&branch={{.Branch}}">← К файлам</a><span class="branch">{{if .Branch}}{{branch .Branch}}{{else}}Основная ветка{{end}}</span></div>
+<h2 class="path">{{.Path}}</h2>
+{{template "code-lines" .Lines}}
+{{end}}

@@ -1,0 +1,10 @@
+{{define "pr-workitems"}}
+<section class="card anchor" id="workitems"><div class="section-head"><h2>Прикреплённые задачи <span class="count">{{len .LinkedItems}}</span></h2></div>
+{{if .LinkNotice}}<p class="notice">{{.LinkNotice}}</p>{{end}}
+{{range .LinkedItems}}<div class="file-row"><span class="badge {{typeClass (field .Fields "System.WorkItemType")}}">{{shortType (field .Fields "System.WorkItemType")}}</span><a href="/workitem/{{.ID}}">#{{.ID}} {{field .Fields "System.Title"}}</a><span class="badge {{stateClass (field .Fields "System.State")}}">{{field .Fields "System.State"}}</span><span class="muted">{{person (index .Fields "System.AssignedTo")}}</span></div>{{else}}{{if .LinksLoaded}}<p class="muted">Задачи не прикреплены.</p>{{end}}{{end}}
+<details open><summary>Прикрепить задачу из моего бэклога</summary>
+<form method="get" action="/repo/{{.Repo}}/pr/{{.PR.ID}}#workitems" class="actions spacer"><label>Поиск по тексту<input name="task" value="{{.LinkSearch}}" maxlength="200" placeholder="Название, описание, критерии…"></label><button class="secondary">Найти мои задачи</button><a href="/repo/{{.Repo}}/pr/{{.PR.ID}}#workitems">Сбросить</a></form>
+<p class="form-help">Только назначенные вам элементы, любые состояния и даты. До 100 последних совпадений; уточните поиск, если нужной задачи нет. Уже прикреплённые исключены.</p>
+{{if .CandidatesLoaded}}<form method="post" action="/repo/{{.Repo}}/pr/{{.PR.ID}}/workitems" class="actions"><input type="hidden" name="csrf" value="{{.Token}}"><label style="flex:1;min-width:0">Элемент бэклога<select name="workitem" required style="width:100%"><option value="">Выберите задачу…</option>{{range .LinkCandidates}}<option value="{{.ID}}">#{{.ID}} · {{field .Fields "System.State"}} · {{shortType (field .Fields "System.WorkItemType")}} · {{field .Fields "System.Title"}}</option>{{end}}</select></label><button>Прикрепить</button></form>{{if not .LinkCandidates}}<p class="muted">Подходящих неприкреплённых задач не найдено. Измените запрос.</p>{{end}}{{end}}
+</details></section>
+{{end}}

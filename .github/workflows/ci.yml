@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Formatting
+        run: test -z "$(gofmt -l *.go)"
+      - run: go mod verify
+      - run: go test -race ./...
+      - run: go vet ./...
+      - run: go build -trimpath -o /tmp/tfs-web .
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test static/search_test.cjs
+      - name: JavaScript syntax
+        run: for file in static/*.js; do node --check "$file"; done
+      - name: Shell syntax
+        run: for file in deploy/*.sh deploy/*.openrc; do sh -n "$file"; done

@@ -1,0 +1,18 @@
+{{define "search-style"}}<style>
+  [hidden]{display:none!important}
+  .fuzzy-picker{position:relative;display:inline-block;min-width:0;flex:1;max-width:100%}
+  label>.fuzzy-picker,.global-search .fuzzy-picker{display:block;width:100%}
+  .fuzzy-picker>input{width:100%;max-width:none!important;min-width:0!important}
+  .fuzzy-menu{position:absolute;top:100%;left:0;min-width:100%;width:max-content;max-width:min(850px,80vw);max-height:350px;overflow:auto;z-index:100;background:#202124;border:1px solid #74777c;box-shadow:0 4px 14px #0009;display:block;text-align:left;font-weight:400}
+  .sidebar .fuzzy-menu{width:650px;max-width:75vw}
+  .fuzzy-status{display:block;padding:4px 7px;color:#aeb3bb;font-size:10px;border-bottom:1px solid #42454a}
+  .fuzzy-option{display:block;padding:5px 7px;cursor:pointer;white-space:normal;overflow-wrap:anywhere;border-left:3px solid transparent;color:#ddd}
+  .fuzzy-option:hover,.fuzzy-option[aria-selected=true]{background:#35445b;color:#fff}
+  .fuzzy-filter{justify-content:flex-start!important;margin:7px 0!important;gap:8px!important}
+  .fuzzy-filter input{max-width:480px!important;width:360px}
+  .badge.type-bug{color:#ff9d9d;background:#542a2e;border:1px solid #91444c}
+  .badge.type-feature{color:#d7b3ff;background:#452d5f;border:1px solid #785099}
+  .badge.type-pbi{color:#a4ceff;background:#243f60;border:1px solid #416d9c}
+  .badge.type-task{color:#ffe292;background:#514522;border:1px solid #8b7639}
+  .fuzzy-option.type-bug{border-left-color:#f06d76}.fuzzy-option.type-feature{border-left-color:#b588ed}.fuzzy-option.type-pbi{border-left-color:#63a2ed}.fuzzy-option.type-task{border-left-color:#e7c257}
+</style>{{end}}

@@ -1,0 +1,14 @@
+{{define "status-style"}}<style>
+  .status-new,.status-unknown{--status-color:#b2b2b2;--status-bg:#353638}
+  .status-todo{--status-color:#fff;--status-bg:#353638}
+  .status-ready,.status-active{--status-color:#007acc;--status-text:#83caff;--status-bg:#163c4b}
+  .status-review{--status-color:#b195dd;--status-bg:#3b304d}
+  .status-resolved{--status-color:#ff9d00;--status-bg:#4b371b}
+  .status-done{--status-color:#339933;--status-text:#9cdb8c;--status-bg:#293e22}
+  .status-removed{--status-color:#969696;--status-bg:#303133}
+  .status-blocked{--status-color:#f06b6b;--status-bg:#4e292c}
+  .badge[class*="status-"],.status-label{display:inline-flex;align-items:center;gap:5px;color:var(--status-text,var(--status-color))}
+  .badge[class*="status-"]{background:var(--status-bg);border:1px solid var(--status-color)}
+  .badge[class*="status-"]::before,.status-label::before{content:"";display:inline-block;width:7px;height:7px;flex-shrink:0;border-radius:50%;background:var(--status-color)}
+  .fuzzy-option[class*="status-"]{color:var(--status-text,var(--status-color));border-left-color:var(--status-color)}
+</style>{{end}}

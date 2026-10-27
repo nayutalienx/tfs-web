@@ -1,0 +1,44 @@
+{{define "workitem"}}{{if .Item.ID}}
+<div class="toolbar"><a href="/backlog">← Бэклог</a><div class="actions"><a class="button secondary" href="#comments">Обсуждение</a><a class="button" href="#edit">Изменить поля</a></div></div>
+<section class="card parent-panel"><div class="meta"><strong>Родительский элемент:</strong>{{with .Parent}}{{with index .Fields "System.WorkItemType"}}<span class="badge {{typeClass .}}">{{shortType .}}</span>{{end}}<a href="/workitem/{{.ID}}">#{{.ID}}{{with index .Fields "System.Title"}} {{.}}{{end}}</a>{{with index .Fields "System.State"}}<span class="badge {{stateClass .}}">{{.}}</span>{{end}}{{else}}<span class="muted">Не задан</span>{{end}}</div></section>
+<section class="card child-panel"><h2>Дочерние элементы · все состояния</h2>{{if .Children}}<div class="tree-header"><span>Элемент / название</span><span>Состояние · ответственный · осталось</span></div><ul class="item-tree">{{template "item-tree" .Children}}</ul>{{else}}<p class="muted">Дочерних элементов нет.</p>{{end}}</section>
+<div class="detail-grid">
+  <div>
+    <article class="card"><div class="meta"><span>#{{.Item.ID}}</span><span class="badge {{typeClass (field .Item.Fields "System.WorkItemType")}}">{{field .Item.Fields "System.WorkItemType"}}</span><span class="badge {{stateClass (field .Item.Fields "System.State")}}">{{field .Item.Fields "System.State"}}</span></div><h2 class="spacer">{{field .Item.Fields "System.Title"}}</h2><h3>Описание</h3><div class="rich">{{safeRich (field .Item.Fields "System.Description") .ImageBase}}</div></article>
+    {{with index .Item.Fields "Microsoft.VSTS.Common.AcceptanceCriteria"}}<section class="card"><h2>Критерии приёмки</h2><div class="rich">{{safeRich . $.ImageBase}}</div></section>{{end}}
+    {{with index .Item.Fields "Microsoft.VSTS.TCM.ReproSteps"}}<section class="card"><h2>Шаги воспроизведения</h2><div class="rich">{{safeRich . $.ImageBase}}</div></section>{{end}}
+  </div>
+  <aside class="card"><h3>Детали элемента</h3><dl class="facts"><div><dt>Ответственный</dt><dd>{{person (index .Item.Fields "System.AssignedTo")}}</dd></div><div><dt>Итерация</dt><dd>{{field .Item.Fields "System.IterationPath"}}</dd></div><div><dt>Область</dt><dd>{{field .Item.Fields "System.AreaPath"}}</dd></div><div><dt>Оценка / осталось / выполнено, ч</dt><dd>{{field .Item.Fields "Microsoft.VSTS.Scheduling.OriginalEstimate"}} / {{field .Item.Fields "Microsoft.VSTS.Scheduling.RemainingWork"}} / {{field .Item.Fields "Microsoft.VSTS.Scheduling.CompletedWork"}}</dd></div><div><dt>Активность</dt><dd>{{field .Item.Fields "Microsoft.VSTS.Common.Activity"}}</dd></div><div><dt>Теги</dt><dd>{{field .Item.Fields "System.Tags"}}</dd></div><div><dt>Ревизия</dt><dd>{{.Item.Rev}}</dd></div></dl></aside>
+</div>
+<section class="card anchor spacer" id="edit"><h2>Редактирование полей</h2><p class="form-help">Значения уже заполнены. Сохраняются только изменённые поля; пустое значение очищает необязательное поле. Существующая HTML-разметка сохраняется, если текст поля не менялся. Изменённый текст записывается с переносами строк, без HTML.</p>
+<form method="post" action="/workitem/{{.Item.ID}}/update">
+  <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="rev" value="{{index .Form "rev"}}">
+  <div class="form-section"><h3>Основное</h3><div class="form-grid">
+    <label class="wide">Заголовок<input name="title" value="{{index .Form "title"}}" required maxlength="255"></label>
+    <label>Состояние<input name="state" list="item-states" value="{{index .Form "state"}}" required><datalist id="item-states">{{range .States}}<option value="{{.Name}}" data-state-class="{{stateClass .Name}}">{{end}}</datalist></label>
+    <label>Приоритет<select name="priority"><option value="">Не задан</option><option value="1" {{if eq (index .Form "priority") "1"}}selected{{end}}>1 — Критический</option><option value="2" {{if eq (index .Form "priority") "2"}}selected{{end}}>2 — Высокий</option><option value="3" {{if eq (index .Form "priority") "3"}}selected{{end}}>3 — Обычный</option><option value="4" {{if eq (index .Form "priority") "4"}}selected{{end}}>4 — Низкий</option></select></label>
+    <label>Итерация<input name="iteration" value="{{index .Form "iteration"}}" required></label><label>Область<input name="area" value="{{index .Form "area"}}" required></label>
+    <label>Ответственный (логин или email)<input name="assigned" value="{{index .Form "assigned"}}" placeholder="Пусто — снять назначение"></label><label>Теги, через точку с запятой<input name="tags" value="{{index .Form "tags"}}"></label>
+  </div></div>
+  <div class="form-section"><h3>Планирование и трудозатраты</h3><div class="form-grid">
+    <label>Активность<input name="activity" list="activities" value="{{index .Form "activity"}}"><datalist id="activities"><option value="Разработка"><option value="Тестирование"><option value="Анализ"></datalist></label>
+    <label>Исходная оценка, ч<input name="original" type="number" min="0" step="any" value="{{index .Form "original"}}"></label><label>Оставшаяся работа, ч<input name="remaining" type="number" min="0" step="any" value="{{index .Form "remaining"}}"></label><label>Выполненная работа, ч<input name="completed" type="number" min="0" step="any" value="{{index .Form "completed"}}"></label>
+  </div><p class="muted">Указывайте абсолютные значения, не прибавку. При закрытии задачи выставьте оставшуюся работу в 0.</p></div>
+  <div class="form-section"><h3>Содержание</h3><div class="form-grid">
+    <label class="wide">Описание<textarea name="description" rows="7">{{index .Form "description"}}</textarea></label><label>Критерии приёмки<textarea name="criteria" rows="6">{{index .Form "criteria"}}</textarea></label><label>Шаги воспроизведения<textarea name="repro" rows="6">{{index .Form "repro"}}</textarea></label>
+    <label class="wide">Комментарий к изменению<textarea name="comment" rows="3" placeholder="Необязательно">{{index .Form "comment"}}</textarea></label>
+  </div></div>
+  <div class="actions"><button>Сохранить изменения</button><a class="button secondary" href="/workitem/{{.Item.ID}}">Отменить / обновить данные</a><span class="muted">Защита от перезаписи чужих изменений · ревизия {{index .Form "rev"}}</span></div>
+</form></section>
+<section class="card anchor spacer" id="comments"><h2>Обсуждение <span class="count">{{len .Comments}}</span></h2>{{range .Comments}}<article class="comment"><div class="comment-head"><strong>{{.By.Name}}</strong><span class="muted">{{.Date}}</span></div><div class="rich">{{safeRich .Text $.ImageBase}}</div></article>{{else}}<p class="muted">Комментариев пока нет. Добавьте комментарий через форму выше.</p>{{end}}<p class="muted">Показаны первые 100 комментариев.</p></section>
+{{end}}{{end}}
+
+{{define "item-tree"}}{{range .}}<li><div class="tree-row"><span><span class="badge {{typeClass (field .Item.Fields "System.WorkItemType")}}">{{shortType (field .Item.Fields "System.WorkItemType")}}</span> <a href="/workitem/{{.Item.ID}}">#{{.Item.ID}} {{field .Item.Fields "System.Title"}}</a></span><span class="tree-info"><span class="badge {{stateClass (field .Item.Fields "System.State")}}">{{field .Item.Fields "System.State"}}</span> {{person (index .Item.Fields "System.AssignedTo")}} <span class="muted">{{field .Item.Fields "Microsoft.VSTS.Scheduling.RemainingWork"}} ч</span> <a href="/workitem/{{.Item.ID}}#edit">править</a></span></div>{{if .Children}}<ul>{{template "item-tree" .Children}}</ul>{{end}}</li>{{end}}{{end}}
+
+{{define "new-workitem"}}
+<div class="toolbar"><a href="/backlog">← Бэклог</a></div>
+<section class="card"><form method="post"><input type="hidden" name="csrf" value="{{.Token}}">
+  <div class="form-grid"><label>Тип элемента<select name="type" required>{{range .Types}}{{if not .Disabled}}<option>{{.Name}}</option>{{end}}{{end}}</select></label><label>ID родителя (необязательно)<input name="parent" type="number" min="1"></label><label class="wide">Заголовок<input name="title" required maxlength="255"></label><label class="wide">Итерация<input name="iteration" placeholder="Путь итерации в TFS" required></label><label class="wide">Описание<textarea name="description" rows="6"></textarea></label><label>Критерии приёмки — обязательно для PBI<textarea name="criteria"></textarea></label><label>Шаги воспроизведения — обязательно для ошибки<textarea name="repro"></textarea></label><label>Исходная оценка, ч — обязательно для задачи<input name="original" type="number" min="0" step="any"></label><label>Оставшаяся работа, ч — обязательно для задачи<input name="remaining" type="number" min="0" step="any"></label></div>
+  <p class="form-help spacer">Для задачи активность — «Разработка». Не добавляйте префикс типа в заголовок. При ошибке или таймауте сначала проверьте бэклог, чтобы не создать дубликат.</p><button>Создать элемент</button>
+</form></section>
+{{end}}
