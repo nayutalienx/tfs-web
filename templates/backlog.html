@@ -2,14 +2,16 @@
 <div class="card">
   <form method="get" class="toolbar" aria-label="Фильтры задач">
     <input name="q" value="{{.Search}}" placeholder="Поиск по тексту…" aria-label="Поиск по тексту" maxlength="200">
-    <select name="scope" aria-label="Область поиска"><option value="">Назначенные мне</option><option value="all" {{if eq .Mode "all"}}selected{{end}}>Весь проект</option></select>
+    <select name="scope" aria-label="Область поиска"><option value="all" {{if eq .Mode "all"}}selected{{end}}>Весь проект</option><option value="mine" {{if ne .Mode "all"}}selected{{end}}>Назначенные мне</option></select>
+    {{if .ShowSprints}}<input type="hidden" name="sprints" value="1"><select name="iteration" aria-label="Спринт / итерация"><option value="">Все итерации</option>{{range .Sprints}}<option value="{{.Path}}" {{if eq $.SprintPath .Path}}selected{{end}}>{{.Label}}</option>{{end}}</select>{{end}}
     <input name="state" list="filter-states" value="{{.StateFilter}}" placeholder="Любое состояние" aria-label="Состояние">
     <datalist id="filter-states">{{range .States}}<option value="{{.Name}}" data-state-class="{{stateClass .Name}}">{{end}}</datalist>
     <input name="type" list="filter-types" value="{{.TypeFilter}}" placeholder="Любой тип" aria-label="Тип элемента">
     <datalist id="filter-types">{{range .Types}}<option value="{{.Name}}">{{end}}</datalist>
     <button>Показать</button><a class="button secondary" href="/backlog">Сбросить</a>
   </form>
-  <div class="muted">По умолчанию — ваши незавершённые элементы за 60 дней. Поиск — до 100 элементов; фильтры типа и состояния применяются к найденным результатам. <a href="/search">Глобальный поиск по бэклогу →</a></div>
+  <div class="toolbar"><a class="button secondary" href="/backlog?sprints=1">Спринты / итерации</a>{{if .SprintPrev}}<a class="button secondary" href="{{.SprintPrev}}">← Предыдущая итерация</a>{{end}}{{if .SprintNext}}<a class="button secondary" href="{{.SprintNext}}">Следующая итерация →</a>{{end}}</div>
+  <div class="muted">Загружено: {{len .Items}} · максимум 100 последних изменённых элементов. {{if eq (len .Items) 100}}Достигнут лимит — уточните поиск или выберите спринт. {{end}}Поиск выполняется в TFS до ограничения результатов. Без ограничения по дате и состоянию. Итерация — точное совпадение, без дочерних итераций. Фильтры типа и состояния применяются к загруженным элементам. <a href="/search">Глобальный поиск →</a></div>
 </div>
 {{template "task-board" .}}
 {{end}}

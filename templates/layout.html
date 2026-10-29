@@ -35,10 +35,10 @@
     <div class="local"><span class="dot"></span>Локальное приложение<br>Go · нативный JS</div>
   </header>
   <main>
-    <div class="page-head"><div><div class="eyebrow">{{if eq .Active "backlog"}}Планирование и задачи{{else if eq .Active "prs"}}Проверка изменений{{else}}Репозитории и код{{end}}</div><h1>{{if eq .PRStatus "completed"}}Слитые pull requests{{else}}{{.Title}}{{end}}</h1></div>{{if eq .Title "Мои задачи"}}<a class="button" href="/workitem/new">+ Создать элемент</a>{{end}}</div>
+    <div class="page-head"><div><div class="eyebrow">{{if eq .Active "backlog"}}Планирование и задачи{{else if eq .Active "prs"}}Проверка изменений{{else}}Репозитории и код{{end}}</div><h1>{{if eq .PRStatus "completed"}}Слитые pull requests{{else}}{{.Title}}{{end}}</h1></div>{{if eq .Title "Бэклог"}}<a class="button" href="/workitem/new">+ Создать элемент</a>{{end}}</div>
     {{if .Error}}<div class="error" role="alert">{{.Error}}</div>{{end}}
     {{if .Notice}}<div class="notice" role="status">{{.Notice}}</div>{{end}}
-    {{if eq .Title "Мои задачи"}}{{template "backlog" .}}{{end}}
+    {{if eq .Title "Бэклог"}}{{template "backlog" .}}{{end}}
     {{if eq .Title "Поиск по бэклогу"}}{{template "backlog-search" .}}{{end}}
     {{if eq .Title "Рабочий элемент"}}{{template "workitem" .}}{{end}}
     {{if eq .Title "Новый элемент"}}{{template "new-workitem" .}}{{end}}

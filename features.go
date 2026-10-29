@@ -48,16 +48,20 @@ type thread struct {
 }
 
 func (c *client) searchBacklog(ctx context.Context, text, scope string) ([]workItem, error) {
+	return c.searchWorkItems(ctx, text, scope, "", 0)
+}
+
+func (c *client) searchWorkItems(ctx context.Context, text, scope, iteration string, limit int) ([]workItem, error) {
 	text = strings.TrimSpace(text)
-	if text == "" && scope != "all" && scope != "mine-all" {
-		return c.backlog(ctx)
-	}
 	if len([]rune(text)) > 200 {
 		return nil, fmt.Errorf("Слишком длинный запрос")
 	}
 	where := "[System.TeamProject] = @project"
 	if scope != "all" {
 		where += " AND [System.AssignedTo] = @Me"
+	}
+	if iteration != "" {
+		where += " AND [System.IterationPath] = '" + strings.ReplaceAll(iteration, "'", "''") + "'"
 	}
 	if text != "" {
 		var matches []string
@@ -69,25 +73,7 @@ func (c *client) searchBacklog(ctx context.Context, text, scope string) ([]workI
 		}
 		where += " AND (" + strings.Join(matches, " OR ") + ")"
 	}
-	var result struct {
-		WorkItems []struct {
-			ID int `json:"id"`
-		} `json:"workItems"`
-	}
-	err := c.request(ctx, "POST", "wit/wiql", url.Values{"$top": {"100"}}, map[string]string{"query": "SELECT [System.Id] FROM WorkItems WHERE " + where + " ORDER BY [System.ChangedDate] DESC"}, &result)
-	if err != nil {
-		return nil, err
-	}
-	if len(result.WorkItems) == 0 {
-		return nil, nil
-	}
-	ids := make([]string, 0, len(result.WorkItems))
-	for _, v := range result.WorkItems {
-		ids = append(ids, strconv.Itoa(v.ID))
-	}
-	var items list[workItem]
-	err = c.request(ctx, "GET", "wit/workitems", url.Values{"ids": {strings.Join(ids, ",")}}, nil, &items)
-	return items.Value, err
+	return c.queryWorkItems(ctx, where, limit)
 }
 func rich(s string) string {
 	return "<div>" + strings.ReplaceAll(html.EscapeString(s), "\n", "<br />") + "</div>"

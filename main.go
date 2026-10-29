@@ -153,28 +153,14 @@ type list[T any] struct {
 }
 
 func (c *client) backlog(ctx context.Context) ([]workItem, error) {
-	var result struct {
-		WorkItems []struct {
-			ID int `json:"id"`
-		} `json:"workItems"`
-	}
-	query := map[string]string{"query": "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.AssignedTo] = @Me AND [System.CreatedDate] >= @Today - 60 AND [System.State] NOT IN ('Выполнено', 'Удалено') ORDER BY [System.ChangedDate] DESC"}
-	if err := c.request(ctx, "POST", "wit/wiql", url.Values{"$top": {"100"}}, query, &result); err != nil {
-		return nil, err
-	}
-	if len(result.WorkItems) == 0 {
-		return nil, nil
-	}
-	ids := make([]string, 0, len(result.WorkItems))
-	for _, w := range result.WorkItems {
-		ids = append(ids, strconv.Itoa(w.ID))
-	}
-	var items list[workItem]
-	err := c.request(ctx, "GET", "wit/workitems", url.Values{"ids": {strings.Join(ids, ",")}}, nil, &items)
-	return items.Value, err
+	return c.searchBacklog(ctx, "", "mine")
 }
 
 type page struct {
+	SprintPath                 string
+	Sprints                    []sprintOption
+	ShowSprints                bool
+	SprintPrev, SprintNext     string
 	ContextURL, ContextProject string
 	Wikis                      []wikiInfo
 	Wiki                       wikiInfo
@@ -295,7 +281,12 @@ func (s *server) routes() http.Handler {
 		http.Redirect(w, r, "/backlog", http.StatusSeeOther)
 	})
 	backlogPage := func(w http.ResponseWriter, r *http.Request) {
-		p := page{Title: "Мои задачи", Search: strings.TrimSpace(r.URL.Query().Get("q")), Mode: r.URL.Query().Get("scope"), StateFilter: r.URL.Query().Get("state"), TypeFilter: r.URL.Query().Get("type")}
+		p := page{Title: "Бэклог", Search: strings.TrimSpace(r.URL.Query().Get("q")), Mode: r.URL.Query().Get("scope"), StateFilter: r.URL.Query().Get("state"), TypeFilter: r.URL.Query().Get("type")}
+		if p.Mode == "" {
+			p.Mode = "all"
+		}
+		p.SprintPath = strings.TrimSpace(r.URL.Query().Get("iteration"))
+		p.ShowSprints = r.URL.Query().Get("sprints") == "1" || p.SprintPath != ""
 		global := r.URL.Path == "/search"
 		if global {
 			p.Title = "Поиск по бэклогу"
@@ -303,8 +294,14 @@ func (s *server) routes() http.Handler {
 		}
 		var items []workItem
 		var e error
-		if !global || p.Search != "" {
-			items, e = s.c.searchBacklog(r.Context(), p.Search, p.Mode)
+		if !global && p.ShowSprints {
+			p.Sprints, e = s.c.projectSprints(r.Context())
+			if e == nil {
+				setSprintNavigation(&p)
+			}
+		}
+		if e == nil && (!global || p.Search != "") {
+			items, e = s.c.searchWorkItems(r.Context(), p.Search, p.Mode, p.SprintPath, 0)
 		}
 		p.Items = items
 		p.Groups = groupTasks(items, p.StateFilter, p.TypeFilter)

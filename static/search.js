@@ -174,7 +174,8 @@
       controller = new AbortController();
       const scope = own || (form.querySelector('[name=scope]') && form.elements.scope.value !== 'all') ? 'mine' : 'all';
       try {
-        const response = await fetch(`/api/search?${new URLSearchParams({q:input.value, scope})}`, {signal:controller.signal, credentials:'same-origin'});
+        const iteration = form.elements.iteration?.value || '';
+        const response = await fetch(`/api/search?${new URLSearchParams({q:input.value, scope, iteration})}`, {signal:controller.signal, credentials:'same-origin'});
         if (!response.ok) throw new Error('search');
         const data = await response.json();
         if (version !== generation || document.activeElement !== input) return;

@@ -33,7 +33,7 @@ func shortType(s string) string {
 
 func activeSection(title string) string {
 	switch title {
-	case "Мои задачи", "Рабочий элемент", "Новый элемент", "Поиск по бэклогу":
+	case "Бэклог", "Мои задачи", "Рабочий элемент", "Новый элемент", "Поиск по бэклогу":
 		return "backlog"
 	case "Активные pull requests", "Pull request", "Изменения PR", "Код PR", "Новый pull request":
 		return "prs"
