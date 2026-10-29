@@ -175,7 +175,10 @@
       const scope = own || (form.querySelector('[name=scope]') && form.elements.scope.value !== 'all') ? 'mine' : 'all';
       try {
         const iteration = form.elements.iteration?.value || '';
-        const response = await fetch(`/api/search?${new URLSearchParams({q:input.value, scope, iteration})}`, {signal:controller.signal, credentials:'same-origin'});
+        const state = form.elements.state?.value || '';
+        const type = form.elements.type?.value || '';
+        const assignee = form.elements.assignee?.value || '';
+        const response = await fetch(`/api/search?${new URLSearchParams({q:input.value, scope, iteration, state, type, assignee})}`, {signal:controller.signal, credentials:'same-origin'});
         if (!response.ok) throw new Error('search');
         const data = await response.json();
         if (version !== generation || document.activeElement !== input) return;

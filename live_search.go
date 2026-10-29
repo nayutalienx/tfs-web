@@ -60,7 +60,7 @@ func (s *server) liveSearch(w http.ResponseWriter, r *http.Request) {
 		formError(w, "Неизвестная область поиска")
 		return
 	}
-	items, err := s.c.searchWorkItems(r.Context(), query, scope, r.URL.Query().Get("iteration"), 100)
+	items, err := s.c.searchWorkItems(r.Context(), query, scope, r.URL.Query().Get("iteration"), r.URL.Query().Get("state"), r.URL.Query().Get("type"), r.URL.Query().Get("assignee"), 100)
 	if err != nil {
 		http.Error(w, "Не удалось выполнить поиск в TFS", http.StatusBadGateway)
 		return

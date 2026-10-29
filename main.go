@@ -159,7 +159,6 @@ func (c *client) backlog(ctx context.Context) ([]workItem, error) {
 type page struct {
 	SprintPath                 string
 	Sprints                    []sprintOption
-	ShowSprints                bool
 	SprintPrev, SprintNext     string
 	ContextURL, ContextProject string
 	Wikis                      []wikiInfo
@@ -191,6 +190,10 @@ type page struct {
 	Active                              string
 	Groups                              []taskGroup
 	StateFilter, TypeFilter             string
+	AssigneeFilter                      string
+	Assignees                           []identity
+	ItemLimit                           int
+	MoreItemsURL                        string
 	States                              []itemState
 	Form                                map[string]string
 	StatusCode                          int
@@ -282,11 +285,13 @@ func (s *server) routes() http.Handler {
 	})
 	backlogPage := func(w http.ResponseWriter, r *http.Request) {
 		p := page{Title: "Бэклог", Search: strings.TrimSpace(r.URL.Query().Get("q")), Mode: r.URL.Query().Get("scope"), StateFilter: r.URL.Query().Get("state"), TypeFilter: r.URL.Query().Get("type")}
+		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+		p.ItemLimit = normalizeWorkItemLimit(limit)
 		if p.Mode == "" {
 			p.Mode = "all"
 		}
 		p.SprintPath = strings.TrimSpace(r.URL.Query().Get("iteration"))
-		p.ShowSprints = r.URL.Query().Get("sprints") == "1" || p.SprintPath != ""
+		p.AssigneeFilter = strings.TrimSpace(r.URL.Query().Get("assignee"))
 		global := r.URL.Path == "/search"
 		if global {
 			p.Title = "Поиск по бэклогу"
@@ -294,19 +299,44 @@ func (s *server) routes() http.Handler {
 		}
 		var items []workItem
 		var e error
-		if !global && p.ShowSprints {
+		if !global {
 			p.Sprints, e = s.c.projectSprints(r.Context())
 			if e == nil {
+				if !r.URL.Query().Has("iteration") {
+					p.SprintPath = currentSprint(p.Sprints, time.Now())
+				}
 				setSprintNavigation(&p)
 			}
 		}
 		if e == nil && (!global || p.Search != "") {
-			items, e = s.c.searchWorkItems(r.Context(), p.Search, p.Mode, p.SprintPath, 0)
+			items, e = s.c.searchWorkItems(r.Context(), p.Search, p.Mode, p.SprintPath, p.StateFilter, p.TypeFilter, p.AssigneeFilter, p.ItemLimit)
+		}
+		if e == nil && len(items) == p.ItemLimit && p.ItemLimit < maxWorkItemLimit {
+			query := r.URL.Query()
+			if !global {
+				query.Set("iteration", p.SprintPath)
+			}
+			query.Set("limit", strconv.Itoa(p.ItemLimit+workItemLimit))
+			p.MoreItemsURL = r.URL.Path + "?" + query.Encode()
 		}
 		p.Items = items
 		p.Groups = groupTasks(items, p.StateFilter, p.TypeFilter)
 		seenStates, seenTypes := map[string]bool{}, map[string]bool{}
+		seenAssignees := map[string]bool{}
 		for _, item := range items {
+			if assigned := item.Fields["System.AssignedTo"]; assigned != nil {
+				name := personName(assigned)
+				value := name
+				if person, ok := assigned.(map[string]any); ok {
+					if unique, ok := person["uniqueName"].(string); ok && unique != "" {
+						value = unique
+					}
+				}
+				if !seenAssignees[value] {
+					p.Assignees = append(p.Assignees, identity{Name: name, UniqueName: value})
+					seenAssignees[value] = true
+				}
+			}
 			state, kind := fieldText(item.Fields, "System.State"), fieldText(item.Fields, "System.WorkItemType")
 			if !seenStates[state] {
 				p.States = append(p.States, itemState{Name: state})

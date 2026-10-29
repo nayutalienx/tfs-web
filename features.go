@@ -48,20 +48,25 @@ type thread struct {
 }
 
 func (c *client) searchBacklog(ctx context.Context, text, scope string) ([]workItem, error) {
-	return c.searchWorkItems(ctx, text, scope, "", 0)
+	return c.searchWorkItems(ctx, text, scope, "", "", "", "", 0)
 }
 
-func (c *client) searchWorkItems(ctx context.Context, text, scope, iteration string, limit int) ([]workItem, error) {
+func (c *client) searchWorkItems(ctx context.Context, text, scope, iteration, state, kind, assignee string, limit int) ([]workItem, error) {
 	text = strings.TrimSpace(text)
 	if len([]rune(text)) > 200 {
 		return nil, fmt.Errorf("Слишком длинный запрос")
 	}
 	where := "[System.TeamProject] = @project"
-	if scope != "all" {
+	if scope != "all" && assignee == "" {
 		where += " AND [System.AssignedTo] = @Me"
 	}
 	if iteration != "" {
 		where += " AND [System.IterationPath] = '" + strings.ReplaceAll(iteration, "'", "''") + "'"
+	}
+	for _, filter := range []struct{ field, value string }{{"System.State", state}, {"System.WorkItemType", kind}, {"System.AssignedTo", assignee}} {
+		if filter.value != "" {
+			where += " AND [" + filter.field + "] = '" + strings.ReplaceAll(filter.value, "'", "''") + "'"
+		}
 	}
 	if text != "" {
 		var matches []string

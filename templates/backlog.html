@@ -1,19 +1,26 @@
 {{define "backlog"}}
 <div class="card">
   <form method="get" class="toolbar" aria-label="Фильтры задач">
+    <input type="hidden" name="limit" value="{{.ItemLimit}}">
     <input name="q" value="{{.Search}}" placeholder="Поиск по тексту…" aria-label="Поиск по тексту" maxlength="200">
     <select name="scope" aria-label="Область поиска"><option value="all" {{if eq .Mode "all"}}selected{{end}}>Весь проект</option><option value="mine" {{if ne .Mode "all"}}selected{{end}}>Назначенные мне</option></select>
-    {{if .ShowSprints}}<input type="hidden" name="sprints" value="1"><select name="iteration" aria-label="Спринт / итерация"><option value="">Все итерации</option>{{range .Sprints}}<option value="{{.Path}}" {{if eq $.SprintPath .Path}}selected{{end}}>{{.Label}}</option>{{end}}</select>{{end}}
+    <select name="iteration" aria-label="Спринт / итерация"><option value="">Все итерации</option>{{range .Sprints}}<option value="{{.Path}}" {{if eq $.SprintPath .Path}}selected{{end}}>{{.Label}}</option>{{end}}</select>
+    <input name="assignee" list="filter-assignees" value="{{.AssigneeFilter}}" placeholder="Любой исполнитель" aria-label="Исполнитель" title="Имя или логин; указанный исполнитель важнее области «Назначенные мне»">
+    <datalist id="filter-assignees">{{range .Assignees}}<option value="{{.UniqueName}}">{{.Name}}</option>{{end}}</datalist>
     <input name="state" list="filter-states" value="{{.StateFilter}}" placeholder="Любое состояние" aria-label="Состояние">
     <datalist id="filter-states">{{range .States}}<option value="{{.Name}}" data-state-class="{{stateClass .Name}}">{{end}}</datalist>
     <input name="type" list="filter-types" value="{{.TypeFilter}}" placeholder="Любой тип" aria-label="Тип элемента">
     <datalist id="filter-types">{{range .Types}}<option value="{{.Name}}">{{end}}</datalist>
     <button>Показать</button><a class="button secondary" href="/backlog">Сбросить</a>
   </form>
-  <div class="toolbar"><a class="button secondary" href="/backlog?sprints=1">Спринты / итерации</a>{{if .SprintPrev}}<a class="button secondary" href="{{.SprintPrev}}">← Предыдущая итерация</a>{{end}}{{if .SprintNext}}<a class="button secondary" href="{{.SprintNext}}">Следующая итерация →</a>{{end}}</div>
-  <div class="muted">Загружено: {{len .Items}} · максимум 100 последних изменённых элементов. {{if eq (len .Items) 100}}Достигнут лимит — уточните поиск или выберите спринт. {{end}}Поиск выполняется в TFS до ограничения результатов. Без ограничения по дате и состоянию. Итерация — точное совпадение, без дочерних итераций. Фильтры типа и состояния применяются к загруженным элементам. <a href="/search">Глобальный поиск →</a></div>
+  {{if or .SprintPrev .SprintNext}}<div class="toolbar">{{if .SprintPrev}}<a class="button secondary" href="{{.SprintPrev}}">← Предыдущая итерация</a>{{end}}{{if .SprintNext}}<a class="button secondary" href="{{.SprintNext}}">Следующая итерация →</a>{{end}}</div>{{end}}
+  {{template "load-more-items" .}}
+  <div class="muted">Поиск и все фильтры применяются в TFS до ограничения результатов. Без ограничения по дате. Итерация — точное совпадение, без дочерних итераций. <a href="/search">Глобальный поиск →</a></div>
 </div>
 {{template "task-board" .}}
+{{end}}
+{{define "load-more-items"}}
+<div class="toolbar">{{if .MoreItemsURL}}<a class="button secondary" href="{{.MoreItemsURL}}">Ещё 100</a>{{else}}<button disabled>Ещё 100</button>{{end}}<span class="muted">Загружено: {{len .Items}} · лимит {{.ItemLimit}}. {{if eq (len .Items) .ItemLimit}}Достигнут лимит{{if not .MoreItemsURL}} — уточните фильтры{{end}}.{{else}}Все подходящие элементы загружены.{{end}}</span></div>
 {{end}}
 {{define "task-board"}}
 <div class="board">
@@ -34,11 +41,12 @@
 {{define "backlog-search"}}
 <section class="card">
   <form method="get" action="/search" class="toolbar" aria-label="Глобальный поиск по бэклогу">
+    <input type="hidden" name="limit" value="{{.ItemLimit}}">
     <input name="q" value="{{.Search}}" placeholder="Текст в элементах бэклога…" aria-label="Текст для поиска" maxlength="200" required autofocus>
     <button>Найти во всём проекте</button><a class="button secondary" href="/search">Сбросить</a>
   </form>
   <p class="muted">Весь проект, любые ответственные и статусы, без ограничения по дате. Поиск в названии, описании, критериях приёмки и шагах воспроизведения. Комментарии не учитываются.</p>
-  {{if .Search}}<div class="meta">Найдено: {{len .Items}} · сначала недавно изменённые{{if eq (len .Items) 100}} · показаны первые 100, уточните запрос{{end}}</div>{{else}}<p class="muted">Введите текст для поиска.</p>{{end}}
+  {{if .Search}}{{template "load-more-items" .}}{{else}}<p class="muted">Введите текст для поиска.</p>{{end}}
 </section>
 {{if .Search}}{{template "task-board" .}}{{end}}
 {{end}}

@@ -7,16 +7,25 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const workItemLimit = 100
+const maxWorkItemLimit = 20000
 
-// Bound every list, including sprint views, to one WIQL query and one details
-// request. Search is applied upstream before the result limit.
-func (c *client) queryWorkItems(ctx context.Context, where string, limit int) ([]workItem, error) {
-	if limit <= 0 || limit > workItemLimit {
-		limit = workItemLimit
+func normalizeWorkItemLimit(limit int) int {
+	if limit < workItemLimit {
+		return workItemLimit
 	}
+	if limit >= maxWorkItemLimit {
+		return maxWorkItemLimit
+	}
+	return ((limit + workItemLimit - 1) / workItemLimit) * workItemLimit
+}
+
+// One bounded WIQL query; fetch details in small batches supported by TFS.
+func (c *client) queryWorkItems(ctx context.Context, where string, limit int) ([]workItem, error) {
+	limit = normalizeWorkItemLimit(limit)
 	var result struct {
 		WorkItems []struct {
 			ID int `json:"id"`
@@ -33,21 +42,26 @@ func (c *client) queryWorkItems(ctx context.Context, where string, limit int) ([
 	for _, ref := range result.WorkItems[:min(len(result.WorkItems), limit)] {
 		ids = append(ids, strconv.Itoa(ref.ID))
 	}
-	var items list[workItem]
-	if err := c.request(ctx, "GET", "wit/workitems", url.Values{"ids": {strings.Join(ids, ",")}}, nil, &items); err != nil {
-		return nil, err
+	var items []workItem
+	for start := 0; start < len(ids); start += workItemLimit {
+		batch := ids[start:min(start+workItemLimit, len(ids))]
+		var result list[workItem]
+		if err := c.request(ctx, "GET", "wit/workitems", url.Values{"ids": {strings.Join(batch, ",")}}, nil, &result); err != nil {
+			return nil, err
+		}
+		if len(result.Value) != len(batch) {
+			return nil, fmt.Errorf("TFS вернул неполный набор элементов бэклога")
+		}
+		items = append(items, result.Value...)
 	}
-	if len(items.Value) != len(ids) {
-		return nil, fmt.Errorf("TFS вернул неполный набор элементов бэклога")
-	}
-	sort.SliceStable(items.Value, func(i, j int) bool {
-		return fieldText(items.Value[i].Fields, "System.ChangedDate") > fieldText(items.Value[j].Fields, "System.ChangedDate")
+	sort.SliceStable(items, func(i, j int) bool {
+		return fieldText(items[i].Fields, "System.ChangedDate") > fieldText(items[j].Fields, "System.ChangedDate")
 	})
-	return items.Value, nil
+	return items, nil
 }
 
 type sprintOption struct {
-	Path, Label, Start string
+	Path, Label, Start, Finish string
 }
 
 type iterationNode struct {
@@ -87,7 +101,7 @@ func (c *client) projectSprints(ctx context.Context) ([]sprintOption, error) {
 				label += " — " + strings.Split(node.Attributes.Finish, "T")[0]
 			}
 		}
-		options = append(options, sprintOption{Path: path, Label: label, Start: node.Attributes.Start})
+		options = append(options, sprintOption{Path: path, Label: label, Start: node.Attributes.Start, Finish: node.Attributes.Finish})
 		for i := range node.Children {
 			child := &node.Children[i]
 			if err := walk(resource+"/"+url.PathEscape(child.Name), path, child); err != nil {
@@ -108,9 +122,30 @@ func (c *client) projectSprints(ctx context.Context) ([]sprintOption, error) {
 	return options, nil
 }
 
+// TFS sprint boundaries are calendar dates; include the entire finish day.
+// Prefer a nested sprint over its dated parent, then the most recent start.
+func currentSprint(options []sprintOption, now time.Time) string {
+	today := now.Format("2006-01-02")
+	var selected sprintOption
+	for _, option := range options {
+		start, end := strings.Split(option.Start, "T")[0], strings.Split(option.Finish, "T")[0]
+		if _, err := time.Parse("2006-01-02", start); err != nil {
+			continue
+		}
+		if _, err := time.Parse("2006-01-02", end); err != nil || start > today || end < today {
+			continue
+		}
+		depth, bestDepth := strings.Count(option.Path, "\\"), strings.Count(selected.Path, "\\")
+		if selected.Path == "" || depth > bestDepth || depth == bestDepth && option.Start > selected.Start {
+			selected = option
+		}
+	}
+	return selected.Path
+}
+
 func setSprintNavigation(p *page) {
 	link := func(path string) string {
-		return "/backlog?" + url.Values{"scope": {"all"}, "sprints": {"1"}, "iteration": {path}}.Encode()
+		return "/backlog?" + url.Values{"scope": {p.Mode}, "iteration": {path}, "q": {p.Search}, "state": {p.StateFilter}, "type": {p.TypeFilter}, "assignee": {p.AssigneeFilter}}.Encode()
 	}
 	for i, option := range p.Sprints {
 		if option.Path != p.SprintPath {
