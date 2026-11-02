@@ -98,6 +98,10 @@ func (s *server) addRoutes(mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 		w.Write(searchScript)
 	})
+	mux.HandleFunc("GET /static/timings.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Write(timingsScript)
+	})
 	mux.HandleFunc("GET /static/ui.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 		w.Write(uiScript)

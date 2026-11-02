@@ -1,6 +1,6 @@
 {{define "backlog"}}
 <div class="card">
-  <form method="get" class="toolbar" aria-label="Фильтры задач">
+  <form method="get" class="toolbar" data-backlog-filters aria-label="Фильтры задач">
     <input type="hidden" name="limit" value="{{.ItemLimit}}">
     <input name="q" value="{{.Search}}" placeholder="Поиск по тексту…" aria-label="Поиск по тексту" maxlength="200">
     <select name="scope" aria-label="Область поиска"><option value="all" {{if eq .Mode "all"}}selected{{end}}>Весь проект</option><option value="mine" {{if ne .Mode "all"}}selected{{end}}>Назначенные мне</option></select>
@@ -24,6 +24,7 @@
 {{end}}
 {{define "task-board"}}
 <div class="board">
+  {{if .Groups}}<div class="task-columns" aria-hidden="true"><span>Элемент</span><span>Название / состояние</span><span>Исполнитель</span><span>Итерация</span><span>Теги</span><span></span></div>{{end}}
   {{range .Groups}}
   <section class="lane"><div class="lane-head"><span class="status-label {{stateClass .Name}}">{{.Name}}</span><span class="count">{{len .Items}}</span></div>
     {{range .Items}}<article class="task">
@@ -31,6 +32,7 @@
       <div class="meta"><a class="task-title" href="/workitem/{{.ID}}">{{field .Fields "System.Title"}}</a><span class="badge {{stateClass (field .Fields "System.State")}}">{{field .Fields "System.State"}}</span></div>
       <div class="meta">{{person (index .Fields "System.AssignedTo")}}{{with index .Fields "Microsoft.VSTS.Scheduling.RemainingWork"}} · осталось {{.}} ч{{end}}</div>
       <div class="iteration">{{field .Fields "System.IterationPath"}}</div>
+      <div class="task-tags" aria-label="Теги" title="{{field .Fields "System.Tags"}}">{{range itemTags (field .Fields "System.Tags")}}<span class="task-tag">{{.}}</span>{{else}}<span class="muted">—</span>{{end}}</div>
       <div class="task-footer"><a href="/workitem/{{.ID}}">Открыть</a><a href="/workitem/{{.ID}}#edit">Изменить поля →</a></div>
     </article>{{end}}
   </section>
@@ -40,7 +42,7 @@
 
 {{define "backlog-search"}}
 <section class="card">
-  <form method="get" action="/search" class="toolbar" aria-label="Глобальный поиск по бэклогу">
+  <form method="get" action="/search" class="toolbar" data-backlog-filters aria-label="Глобальный поиск по бэклогу">
     <input type="hidden" name="limit" value="{{.ItemLimit}}">
     <input name="q" value="{{.Search}}" placeholder="Текст в элементах бэклога…" aria-label="Текст для поиска" maxlength="200" required autofocus>
     <button>Найти во всём проекте</button><a class="button secondary" href="/search">Сбросить</a>

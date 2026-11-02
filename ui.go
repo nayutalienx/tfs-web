@@ -31,6 +31,16 @@ func shortType(s string) string {
 	return s
 }
 
+func workItemTags(s string) []string {
+	var tags []string
+	for _, tag := range strings.Split(s, ";") {
+		if tag = strings.TrimSpace(tag); tag != "" {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
+}
+
 func activeSection(title string) string {
 	switch title {
 	case "Бэклог", "Мои задачи", "Рабочий элемент", "Новый элемент", "Поиск по бэклогу":

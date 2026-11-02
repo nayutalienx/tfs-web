@@ -71,6 +71,34 @@
   const ranked = (rows, query) => rows.map((row, index) => ({...row, index, score: score(row.label, query)}))
     .filter(row => row.score !== -Infinity).sort((a, b) => b.score - a.score || a.index - b.index);
 
+  // Keep each history entry independent: no shared "last filter" in storage.
+  const backlogForm = document.querySelector('[data-backlog-filters]');
+  const filterNames = ['q', 'scope', 'iteration', 'assignee', 'state', 'type', 'limit'];
+  const savedFilters = history.state?.backlogFilters;
+  if (backlogForm && savedFilters) {
+    filterNames.forEach(name => {
+      if (backlogForm.elements[name] && typeof savedFilters[name] === 'string') backlogForm.elements[name].value = savedFilters[name];
+    });
+  }
+  const saveFilters = () => {
+    if (!backlogForm) return;
+    const values = {};
+    filterNames.forEach(name => { if (backlogForm.elements[name]) values[name] = backlogForm.elements[name].value; });
+    history.replaceState({...history.state, backlogFilters: values}, '');
+  };
+  if (backlogForm) {
+    // Pin the date-derived default sprint, including an explicit "all iterations".
+    const url = new URL(location.href);
+    if (location.pathname === '/backlog' && !url.searchParams.has('iteration')) {
+      url.searchParams.set('iteration', backlogForm.elements.iteration.value);
+      history.replaceState(history.state, '', url);
+    }
+    backlogForm.addEventListener('input', saveFilters);
+    backlogForm.addEventListener('change', saveFilters);
+    window.addEventListener('pagehide', saveFilters);
+    saveFilters();
+  }
+
   // Every select and datalist remains the real form control; JS only adds a searchable UI.
   document.querySelectorAll('select, input[list]').forEach(control => {
     if (control.disabled || control.multiple) return;
@@ -91,6 +119,7 @@
     input.addEventListener('focus', () => { input.select(); ui.show(options()); });
     if (isSelect) {
       sync(); control.addEventListener('change', sync);
+      window.addEventListener('pageshow', sync);
       control.addEventListener('invalid', event => { event.preventDefault(); input.focus(); });
       input.addEventListener('blur', sync);
       control.form?.addEventListener('reset', () => setTimeout(sync));
@@ -123,6 +152,8 @@
     if (!rows.length) return;
     const toolbar = element('div', 'fuzzy-filter toolbar');
     const input = element('input'); input.type = 'search'; input.placeholder = `fzf: ${label}…`;
+    const backlog = container.matches('.board');
+    if (backlog) input.value = new URL(location.href).searchParams.get('fzf') || '';
     input.setAttribute('aria-label', `Быстрый поиск: ${label}`);
     const status = element('span', 'muted'); status.role = 'status';
     toolbar.append(input, status); container.before(toolbar);
@@ -137,10 +168,23 @@
       }
       container.querySelectorAll('.lane').forEach(lane => { lane.hidden = ![...lane.querySelectorAll('.task')].some(row => !row.hidden); });
       status.textContent = `${matched.size} / ${rows.length} · загруженные элементы`;
+      if (backlog) {
+        const url = new URL(location.href);
+        if (input.value) url.searchParams.set('fzf', input.value); else url.searchParams.delete('fzf');
+        history.replaceState(history.state, '', url);
+      }
     }
     input.addEventListener('input', update);
     input.addEventListener('keydown', event => { if (event.key === 'Escape') { input.value = ''; update(); } if (event.key === 'Enter') { event.preventDefault(); rows.find(row => !row.hidden)?.querySelector('a')?.focus(); } });
     update();
+    if (backlog) {
+      const restore = () => {
+        input.value = new URL(location.href).searchParams.get('fzf') || '';
+        update();
+      };
+      window.addEventListener('pageshow', restore);
+      window.addEventListener('popstate', restore);
+    }
   }
   document.querySelectorAll('.repo-grid').forEach(node => filterCollection(node, '.repo-card', 'репозитории'));
   document.querySelectorAll('.board').forEach(node => filterCollection(node, '.task', 'задачи, ID, ответственный'));

@@ -53,13 +53,17 @@ func TestMineBacklogIncludesOldAndClosedItems(t *testing.T) {
 		}
 		writeJSON(w, map[string]any{"workItems": []any{}})
 	})
-	if response := appRequest(app, "GET", "/backlog?scope=mine", nil); response.Code != 200 {
-		t.Fatal(response.Code)
+	for _, path := range []string{"/backlog", "/backlog?scope=mine"} {
+		response := appRequest(app, "GET", path, nil)
+		if response.Code != 200 || !strings.Contains(response.Body.String(), `value="mine" selected`) {
+			t.Fatal(path, response.Code, "mine scope not selected")
+		}
 	}
 }
 
 func TestBacklogStopsAtResultLimit(t *testing.T) {
 	queries, batches := 0, 0
+	expectMine := false
 	app := testApp(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/classificationnodes/iterations"):
@@ -69,7 +73,10 @@ func TestBacklogStopsAtResultLimit(t *testing.T) {
 			var body map[string]string
 			json.NewDecoder(r.Body).Decode(&body)
 			q := body["query"]
-			for _, forbidden := range []string{"@Me", "CreatedDate", "System.State", "System.WorkItemType"} {
+			if strings.Contains(q, "[System.AssignedTo] = @Me") != expectMine {
+				t.Error("unexpected assignee scope", q)
+			}
+			for _, forbidden := range []string{"CreatedDate", "System.State", "System.WorkItemType"} {
 				if strings.Contains(q, forbidden) {
 					t.Error(q)
 				}
@@ -105,6 +112,7 @@ func TestBacklogStopsAtResultLimit(t *testing.T) {
 	})
 	for _, path := range []string{"/backlog", "/backlog?scope=all", "/search?q=example"} {
 		queries, batches = 0, 0
+		expectMine = path == "/backlog"
 		w := appRequest(app, "GET", path, nil)
 		if w.Code != 200 || queries != 1 || batches != 1 || !strings.Contains(w.Body.String(), "Элемент 100") {
 			t.Fatal(path, w.Code, queries, batches)
@@ -139,7 +147,7 @@ func TestSprintSelectionAndNavigation(t *testing.T) {
 			http.NotFound(w, r)
 		}
 	})
-	w := appRequest(app, "GET", "/backlog?"+url.Values{"iteration": {path}}.Encode(), nil)
+	w := appRequest(app, "GET", "/backlog?"+url.Values{"scope": {"all"}, "iteration": {path}}.Encode(), nil)
 	for _, want := range []string{"Завершённый PBI", "Предыдущая итерация", "Следующая итерация", "2024-02-01 — 2024-02-14", "Earlier", "Later"} {
 		if w.Code != 200 || !strings.Contains(w.Body.String(), want) {
 			t.Error(w.Code, want)

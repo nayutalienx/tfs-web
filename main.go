@@ -35,10 +35,7 @@ type client struct {
 	user       identity
 }
 
-func newClient(c config) *client {
-	return &client{cfg: c, http: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
-}
-func (c *client) request(ctx context.Context, method, path string, q url.Values, body any, out any) error {
+func (c *client) requestOnce(ctx context.Context, method, path string, q url.Values, body any, out any) error {
 	if q == nil {
 		q = url.Values{}
 	}
@@ -157,6 +154,8 @@ func (c *client) backlog(ctx context.Context) ([]workItem, error) {
 }
 
 type page struct {
+	PageTime, TFSTime          string
+	TFSCalls, TFSErrors        int
 	SprintPath                 string
 	Sprints                    []sprintOption
 	SprintPrev, SprintNext     string
@@ -228,10 +227,14 @@ var searchScript []byte
 
 //go:embed static/context.js
 var contextScript []byte
+
+//go:embed static/timings.js
+var timingsScript []byte
 var tmpl = template.Must(template.New("layout.html").Funcs(template.FuncMap{
 	"safeRich": safeRich, "plain": plainText, "branch": func(s string) string { return strings.TrimPrefix(s, "refs/heads/") },
 	"field": fieldText, "person": personName, "vote": voteLabel, "base": filepath.Base,
 	"shortType":  shortType,
+	"itemTags":   workItemTags,
 	"typeClass":  typeClass,
 	"stateClass": stateClass, "prStatusClass": prStatusClass,
 }).ParseFS(templateFiles, "templates/*.html"))
@@ -254,6 +257,9 @@ func (s *server) render(w http.ResponseWriter, p page, err error) {
 		p.Active = activeSection(p.Title)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if tw, ok := w.(*timingWriter); ok {
+		tw.pageTimings(&p)
+	}
 	if err != nil {
 		p.Error = err.Error()
 		if p.StatusCode == 0 {
@@ -271,6 +277,10 @@ func (s *server) render(w http.ResponseWriter, p page, err error) {
 const listenAddress = "127.0.0.1:18763"
 
 func (s *server) routes() http.Handler {
+	return withPageTimings(s.baseRoutes())
+}
+
+func (s *server) baseRoutes() http.Handler {
 	if len(s.contextKey) != 0 {
 		return s.browserContextRoutes()
 	}
@@ -288,7 +298,7 @@ func (s *server) routes() http.Handler {
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 		p.ItemLimit = normalizeWorkItemLimit(limit)
 		if p.Mode == "" {
-			p.Mode = "all"
+			p.Mode = "mine"
 		}
 		p.SprintPath = strings.TrimSpace(r.URL.Query().Get("iteration"))
 		p.AssigneeFilter = strings.TrimSpace(r.URL.Query().Get("assignee"))
@@ -364,6 +374,7 @@ func (s *server) routes() http.Handler {
 			p.Form = itemForm(item)
 			s.itemHierarchy(r.Context(), &p)
 			p.States = s.itemStates(r.Context(), item)
+			s.itemSprints(r.Context(), &p)
 			var comments struct {
 				Value    []workComment `json:"value"`
 				Comments []workComment `json:"comments"`

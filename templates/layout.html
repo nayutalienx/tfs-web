@@ -19,6 +19,7 @@
   <script src="/static/ui.js" defer></script>
   <script src="/static/search.js" defer></script>
   <script src="/static/context.js" defer></script>
+  <script src="/static/timings.js" defer></script>
   <style>.context-button{position:fixed;right:12px;top:8px;z-index:110;padding:3px 9px!important;font-size:11px!important}.page-head{padding-right:240px}.context-dialog{width:620px;max-height:90vh;padding:12px;background:#292a2e;color:#ddd;border:1px solid #646973}.context-dialog::backdrop{background:#000a}.context-panel label{margin:10px 0}.context-panel .actions{margin-top:12px}.context-panel input{width:100%}</style>
 </head>
 <body>
@@ -32,7 +33,11 @@
       <a href="/wiki" {{if eq .Active "wiki"}}aria-current="page"{{end}}>Wiki · документы</a>
     </nav>
     <form method="get" action="/search" class="global-search" role="search" aria-label="Поиск по всему бэклогу"><label for="global-query">Поиск бэклога</label><input id="global-query" name="q" value="{{.Search}}" placeholder="Текст…" maxlength="200" required><button>Найти</button></form>
-    <div class="local"><span class="dot"></span>Локальное приложение<br>Go · нативный JS</div>
+    <aside class="connection-stats" aria-label="Время загрузки">
+      <div class="stats-heading">Загрузка</div>
+      <div class="stats-row" title="Время обработки сервером до формирования HTML; с JavaScript — полная загрузка страницы в браузере"><span>Страница</span><strong data-page-time>{{if .PageTime}}{{.PageTime}}{{else}}—{{end}}</strong></div>
+      <div class="stats-row{{if .TFSErrors}} stats-error{{end}}" title="Суммарное время запросов данных TFS, включая чтение ответа и повтор при сбое. Запросов: {{.TFSCalls}}, с ошибкой: {{.TFSErrors}}"><span>TFS{{if .TFSErrors}} !{{end}}</span><strong>{{if .TFSCalls}}{{.TFSTime}}{{else}}—{{end}}</strong></div>
+    </aside>
   </header>
   <main>
     <div class="page-head"><div><div class="eyebrow">{{if eq .Active "backlog"}}Планирование и задачи{{else if eq .Active "prs"}}Проверка изменений{{else}}Репозитории и код{{end}}</div><h1>{{if eq .PRStatus "completed"}}Слитые pull requests{{else}}{{.Title}}{{end}}</h1></div>{{if eq .Title "Бэклог"}}<a class="button" href="/workitem/new">+ Создать элемент</a>{{end}}</div>

@@ -85,6 +85,32 @@ func (s *server) itemStates(ctx context.Context, item workItem) []itemState {
 	}
 	return append([]itemState{{current}}, states.Value...)
 }
+func (s *server) itemSprints(ctx context.Context, p *page) {
+	options, err := s.c.projectSprints(ctx)
+	if err != nil {
+		p.Notice += " Не удалось загрузить список спринтов. Путь итерации можно указать вручную: " + err.Error()
+		return
+	}
+	// Preserve both the stored iteration and an unsaved selection, even if
+	// the classification tree no longer contains either path.
+	for _, path := range []string{fieldText(p.Item.Fields, "System.IterationPath"), p.Form["iteration"]} {
+		if path == "" {
+			continue
+		}
+		found := false
+		for _, option := range options {
+			if option.Path == path {
+				found = true
+				break
+			}
+		}
+		if !found {
+			options = append(options, sprintOption{Path: path, Label: path})
+		}
+	}
+	p.Sprints = options
+}
+
 func (s *server) updateWorkItem(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id < 1 {
@@ -105,6 +131,7 @@ func (s *server) updateWorkItem(w http.ResponseWriter, r *http.Request) {
 	form["rev"], form["comment"] = r.FormValue("rev"), r.FormValue("comment")
 	failure := func(status int, message string) {
 		p := page{Title: "Рабочий элемент", Item: item, Form: form, States: s.itemStates(r.Context(), item), StatusCode: status}
+		s.itemSprints(r.Context(), &p)
 		s.itemHierarchy(r.Context(), &p)
 		s.render(w, p, errors.New(message))
 	}
