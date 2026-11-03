@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -71,19 +72,73 @@ func itemForm(item workItem) map[string]string {
 	}
 	return form
 }
-func (s *server) itemStates(ctx context.Context, item workItem) []itemState {
-	var states list[itemState]
-	err := s.c.request(ctx, "GET", "wit/workitemtypes/"+url.PathEscape(fieldText(item.Fields, "System.WorkItemType"))+"/states", nil, nil, &states)
-	current := fieldText(item.Fields, "System.State")
-	if err != nil {
-		return []itemState{{current}}
+func (c *client) workItemStates(ctx context.Context, kind string) ([]itemState, error) {
+	if kind == "" {
+		return nil, errors.New("не указан тип элемента")
 	}
-	for _, state := range states.Value {
-		if state.Name == current {
-			return states.Value
+	path := "wit/workitemtypes/" + url.PathEscape(kind)
+	var states list[itemState]
+	err := c.request(ctx, "GET", path+"/states", url.Values{"api-version": {"6.0-preview.1"}}, nil, &states)
+	if err == nil && len(states.Value) > 0 {
+		return states.Value, nil
+	}
+	// Older servers may expose workflow metadata only on the type definition.
+	if err != nil {
+		var api *apiError
+		if !errors.As(err, &api) || (api.Status != 400 && api.Status != 404 && api.Status != 405) {
+			return nil, err
 		}
 	}
-	return append([]itemState{{current}}, states.Value...)
+	var definition struct {
+		States      []itemState `json:"states"`
+		Transitions map[string][]struct {
+			To string `json:"to"`
+		} `json:"transitions"`
+	}
+	if err := c.request(ctx, "GET", path, nil, nil, &definition); err != nil {
+		return nil, err
+	}
+	if len(definition.States) > 0 {
+		return definition.States, nil
+	}
+	names := map[string]bool{}
+	for from, transitions := range definition.Transitions {
+		if from != "" {
+			names[from] = true
+		}
+		for _, transition := range transitions {
+			if transition.To != "" {
+				names[transition.To] = true
+			}
+		}
+	}
+	ordered := make([]string, 0, len(names))
+	for name := range names {
+		ordered = append(ordered, name)
+	}
+	sort.Strings(ordered)
+	for _, name := range ordered {
+		states.Value = append(states.Value, itemState{Name: name})
+	}
+	if len(states.Value) == 0 {
+		return nil, errors.New("TFS не вернул состояния типа элемента")
+	}
+	return states.Value, nil
+}
+
+func (s *server) itemStates(ctx context.Context, p *page) {
+	states, err := s.c.workItemStates(ctx, fieldText(p.Item.Fields, "System.WorkItemType"))
+	if err != nil {
+		p.Notice += " Не удалось загрузить доступные состояния. Состояние можно указать вручную: " + err.Error()
+		return
+	}
+	seen := map[string]bool{}
+	for _, state := range append(states, itemState{Name: fieldText(p.Item.Fields, "System.State")}, itemState{Name: p.Form["state"]}) {
+		if state.Name != "" && !seen[state.Name] {
+			p.States = append(p.States, state)
+			seen[state.Name] = true
+		}
+	}
 }
 func (s *server) itemSprints(ctx context.Context, p *page) {
 	options, err := s.c.projectSprints(ctx)
@@ -130,7 +185,8 @@ func (s *server) updateWorkItem(w http.ResponseWriter, r *http.Request) {
 	}
 	form["rev"], form["comment"] = r.FormValue("rev"), r.FormValue("comment")
 	failure := func(status int, message string) {
-		p := page{Title: "Рабочий элемент", Item: item, Form: form, States: s.itemStates(r.Context(), item), StatusCode: status}
+		p := page{Title: "Рабочий элемент", Item: item, Form: form, StatusCode: status}
+		s.itemStates(r.Context(), &p)
 		s.itemSprints(r.Context(), &p)
 		s.itemHierarchy(r.Context(), &p)
 		s.render(w, p, errors.New(message))

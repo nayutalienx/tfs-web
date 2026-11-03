@@ -373,7 +373,7 @@ func (s *server) baseRoutes() http.Handler {
 		if e == nil {
 			p.Form = itemForm(item)
 			s.itemHierarchy(r.Context(), &p)
-			p.States = s.itemStates(r.Context(), item)
+			s.itemStates(r.Context(), &p)
 			s.itemSprints(r.Context(), &p)
 			var comments struct {
 				Value    []workComment `json:"value"`
